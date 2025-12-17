@@ -11,7 +11,7 @@ vim.o.expandtab = true
 vim.o.smartindent = true
 vim.o.cursorline = true
 vim.o.linebreak = true
-vim.o.scrolloff = 10
+vim.o.scrolloff = 8
 vim.o.signcolumn = 'yes'
 vim.o.list = true
 vim.o.listchars = 'tab:» ,lead:•,trail:•'
@@ -44,6 +44,10 @@ vim.keymap.set('n', '<C-j>', '<cmd>move .+1<CR>==')
 vim.keymap.set('n', '<C-k>', '<cmd>move .-2<CR>==')
 vim.keymap.set('v', '<C-j>', ":move '>+1<CR>gv=gv")
 vim.keymap.set('v', '<C-k>', ":move '<-2<CR>gv=gv")
+vim.keymap.set("n", "<C-u>", "<C-u>zz", { desc = "Half page up" })
+vim.keymap.set("n", "<C-d>", "<C-d>zz", { desc = "Half page down" })
+vim.keymap.set('v', '<', "<gv")
+vim.keymap.set('v', '>', ">gv")
 
 -- go specific keymaps
 vim.keymap.set('n', '<leader>r', '<cmd>update <CR> <cmd>vsplit | terminal go run %<CR>', { desc = 'Run current file' })
