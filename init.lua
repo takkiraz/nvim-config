@@ -82,19 +82,45 @@ end, { desc = 'Print the git blame for the current line' })
 
 -- Plugins
 vim.pack.add({
-    { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = '0.10.0' },
-    { src = 'https://github.com/neovim/nvim-lspconfig',           version = '2.5.0' },
-    { src = 'https://github.com/saghen/blink.cmp',                version = '1.8.0' },
-    { src = 'https://github.com/fang2hou/blink-copilot',          version = '1.4.1' },
-    { src = 'https://github.com/catppuccin/nvim',                 version = '1.11.0' },
+    { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'v0.10.0' },
+    { src = 'https://github.com/saghen/blink.cmp',                version = 'v1.8.0' },
+    { src = 'https://github.com/fang2hou/blink-copilot',          version = 'v1.4.1' },
     { src = 'https://github.com/nvim-tree/nvim-web-devicons',     version = '8dcb311b0c92d460fac00eac706abd43d94d68af' },
-    { src = 'https://github.com/nvim-telescope/telescope.nvim',   version = '0.2.0' },
+    { src = 'https://github.com/nvim-telescope/telescope.nvim',   version = 'v0.2.0' },
     { src = 'https://github.com/nvim-lua/plenary.nvim',           version = 'b9fd5226c2f76c951fc8ed5923d85e4de065e509' },
-    { src = 'https://github.com/stevearc/oil.nvim',               version = '2.15.0' },
+    { src = 'https://github.com/stevearc/oil.nvim',               version = 'v2.15.0' },
     { src = 'https://github.com/mbbill/undotree.git',             version = '0f1c9816975b5d7f87d5003a19c53c6fd2ff6f7f' },
-    { src = "https://github.com/williamboman/mason.nvim",         version = "2.1.0" },
-    { src = "https://github.com/mason-org/mason-lspconfig.nvim",  version = "2.1.0" },
+    { src = 'https://github.com/williamboman/mason.nvim',         version = 'v2.1.0' },
+    { src = 'https://github.com/mason-org/mason-lspconfig.nvim',  version = 'v2.1.0' },
+    { src = 'https://github.com/stevearc/conform.nvim.git',       version = 'v9.1.0' },
+    { src = 'https://github.com/neovim/nvim-lspconfig' },
+    { src = 'https://github.com/catppuccin/nvim' },
     "https://github.com/WhoIsSethDaniel/mason-tool-installer.nvim",
+})
+
+-- Conform
+require('conform').setup({
+    format_on_save = function(bufnr)
+        -- Disable with a global or buffer-local variable
+        if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
+            return
+        end
+        return { timeout_ms = 500, lsp_format = "fallback" }
+    end,
+    formatters_by_ft = {
+        lua = { 'stylua' },
+        go = { 'gofmt', 'gofumpt', 'goimports' },
+        javascript = { 'prettierd' },
+        typescript = { 'prettierd' },
+        javascriptreact = { 'prettierd' },
+        typescriptreact = { 'prettierd' },
+        vue = { 'prettierd' },
+        json = { 'prettierd' },
+        yaml = { 'prettierd' },
+        css = { 'prettierd' },
+        html = { 'prettierd' },
+        bash = { 'shfmt' },
+    },
 })
 
 -- Mason
@@ -233,16 +259,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
             return
         end
 
-        ---@diagnostic disable-next-line: param-type-mismatch
-        if client.supports_method('textDocument/formatting') then
-            vim.api.nvim_create_autocmd('BufWritePre', {
-                buffer = event.buf,
-                callback = function()
-                    vim.lsp.buf.format({ bufnr = event.buf })
-                end,
-            })
-        end
-
         local map = function(keys, func, desc)
             vim.keymap.set('n', keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
         end
@@ -259,7 +275,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
         map('<leader>rn', vim.lsp.buf.rename, 'Rename')
         map('<leader>ca', vim.lsp.buf.code_action, 'Code Action')
-        map('<leader>f', vim.lsp.buf.format, 'Format')
+        map('<leader>f', require('conform').format, 'Format')
         map('<leader>ld', vim.diagnostic.open_float, 'Show Diagnostics')
         map('<leader>ll', '<cmd>Telescope diagnostics bufnr=0<CR>', 'Document Diagnostics')
         map('<leader>lw', '<cmd>Telescope diagnostics<CR>', 'Workspace Diagnostics')
