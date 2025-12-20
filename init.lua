@@ -25,7 +25,13 @@ vim.o.writebackup = false
 vim.o.undofile = true
 vim.o.swapfile = false
 vim.o.mouse = 'a'
-vim.o.clipboard = 'unnamedplus'
+
+vim.api.nvim_create_autocmd('UIEnter', {
+    callback = function()
+        vim.o.clipboard = 'unnamedplus'
+    end,
+})
+
 vim.o.updatetime = 250
 vim.o.timeoutlen = 300
 vim.o.winborder = 'rounded'
@@ -62,10 +68,17 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 
 -- Autocommands
 vim.api.nvim_create_autocmd('TextYankPost', {
+    desc = 'Highlight yanked text',
     callback = function()
-        vim.highlight.on_yank({ timeout = 150 })
+        vim.highlight.on_yank({ timeout = 200 })
     end,
 })
+
+vim.api.nvim_create_user_command('GitBlameLine', function()
+    local line_number = vim.fn.line('.')
+    local filename = vim.api.nvim_buf_get_name(0)
+    print(vim.system({ 'git', 'blame', '-L', line_number .. ',+1', filename }):wait().stdout)
+end, { desc = 'Print the git blame for the current line' })
 
 -- Plugins
 vim.pack.add({
@@ -215,6 +228,21 @@ lspconfig_defaults.capabilities = vim.tbl_deep_extend(
 )
 vim.api.nvim_create_autocmd('LspAttach', {
     callback = function(event)
+        local client = vim.lsp.get_client_by_id(event.data.client_id)
+        if not client then
+            return
+        end
+
+        ---@diagnostic disable-next-line: param-type-mismatch
+        if client.supports_method('textDocument/formatting') then
+            vim.api.nvim_create_autocmd('BufWritePre', {
+                buffer = event.buf,
+                callback = function()
+                    vim.lsp.buf.format({ bufnr = event.buf })
+                end,
+            })
+        end
+
         local map = function(keys, func, desc)
             vim.keymap.set('n', keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
         end
@@ -225,7 +253,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
         map('gy', '<cmd>Telescope lsp_type_definitions<CR>', 'Go to Type Definition')
         map('gr', '<cmd>Telescope lsp_references<CR>', 'Go to References')
 
-        map('K', vim.lsp.buf.hover, 'Hover Documentation')
         map('K', vim.lsp.buf.hover, 'Hover Documentation')
         map('<C-k>', vim.lsp.buf.signature_help, 'Signature Help')
         vim.keymap.set('i', '<C-k>', vim.lsp.buf.signature_help, { buffer = event.buf, desc = 'LSP: Signature Help' })
