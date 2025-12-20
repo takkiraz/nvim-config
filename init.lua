@@ -95,7 +95,25 @@ vim.pack.add({
     { src = 'https://github.com/stevearc/conform.nvim.git',       version = 'v9.1.0' },
     { src = 'https://github.com/neovim/nvim-lspconfig' },
     { src = 'https://github.com/catppuccin/nvim' },
+    "https://github.com/mfussenegger/nvim-lint",
     "https://github.com/WhoIsSethDaniel/mason-tool-installer.nvim",
+})
+
+-- Linting
+local lint = require('lint')
+
+lint.linters_by_ft = {
+    javascript = { 'eslint_d' },
+    typescript = { 'eslint_d' },
+    javascriptreact = { 'eslint_d' },
+    typescriptreact = { 'eslint_d' },
+    vue = { 'eslint_d' },
+}
+
+vim.api.nvim_create_autocmd({ "BufWritePost", "BufEnter", "InsertLeave" }, {
+    callback = function()
+        lint.try_lint()
+    end,
 })
 
 -- Conform
@@ -275,7 +293,11 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
         map('<leader>rn', vim.lsp.buf.rename, 'Rename')
         map('<leader>ca', vim.lsp.buf.code_action, 'Code Action')
-        map('<leader>f', require('conform').format, 'Format')
+        map('<leader>f', function()
+            require('conform').format {
+                async = true, lsp_format = "fallback", timeout_ms = 500
+            }
+        end, 'Format')
         map('<leader>ld', vim.diagnostic.open_float, 'Show Diagnostics')
         map('<leader>ll', '<cmd>Telescope diagnostics bufnr=0<CR>', 'Document Diagnostics')
         map('<leader>lw', '<cmd>Telescope diagnostics<CR>', 'Workspace Diagnostics')

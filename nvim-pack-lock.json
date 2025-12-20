@@ -45,6 +45,10 @@
       "rev": "d97d85e01339f01b842e6ec1502f639b080cb0fc",
       "src": "https://github.com/hrsh7th/nvim-cmp"
     },
+    "nvim-lint": {
+      "rev": "7a64f4067065c16a355d40d0d599b8ca6b25de6d",
+      "src": "https://github.com/mfussenegger/nvim-lint"
+    },
     "nvim-lspconfig": {
       "rev": "a2bd1cf7b0446a7414aaf373cea5e4ca804c9c69",
       "src": "https://github.com/neovim/nvim-lspconfig"
