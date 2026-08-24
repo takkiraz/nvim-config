@@ -1,12 +1,13 @@
 return {
-  settings = {
-    gopls = {
-      analyses = {
-        unusedparams = true,
-        shadow = true,
-      },
-      staticcheck = true,
-      gofumpt = true,
+    settings = {
+        gopls = {
+            analyses = {
+                unusedparams = true,
+                shadow = true,
+            },
+            staticcheck = true,
+            gofumpt = true,
+            standaloneTags = { 'ignore', 'mage' },
+        },
     },
-  },
 }

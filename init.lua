@@ -18,9 +18,7 @@ vim.o.list = true
 vim.o.listchars = 'tab:» ,lead:•,trail:•'
 vim.o.ignorecase = true
 vim.o.smartcase = true
-vim.o.hlsearch = true
 vim.o.inccommand = 'split'
-vim.o.backup = false
 vim.o.writebackup = false
 vim.o.undofile = true
 vim.o.swapfile = false
@@ -34,6 +32,7 @@ vim.api.nvim_create_autocmd('UIEnter', {
 
 vim.o.updatetime = 250
 vim.o.timeoutlen = 300
+vim.o.exrc = true -- load .nvim.lua from project directories
 vim.o.winborder = 'rounded'
 vim.o.splitright = true
 vim.o.splitbelow = true
@@ -47,19 +46,15 @@ vim.keymap.set('v', '<leader>d', '"_d')
 vim.keymap.set('n', '<leader>a', '<cmd>split | terminal<CR>i')
 vim.keymap.set('n', '<leader>ec', '<cmd>edit $MYVIMRC<CR>')
 vim.keymap.set('n', '<leader>so', ':update<CR> :source<CR>')
-vim.keymap.set('n', '<C-j>', '<cmd>move .+1<CR>==')
-vim.keymap.set('n', '<C-k>', '<cmd>move .-2<CR>==')
-vim.keymap.set('v', '<C-j>', ":move '>+1<CR>gv=gv")
-vim.keymap.set('v', '<C-k>', ":move '<-2<CR>gv=gv")
 vim.keymap.set("n", "<C-u>", "<C-u>zz", { desc = "Half page up" })
 vim.keymap.set("n", "<C-d>", "<C-d>zz", { desc = "Half page down" })
 vim.keymap.set('v', '<', "<gv")
 vim.keymap.set('v', '>', ">gv")
 
--- go specific keymaps
-vim.keymap.set('n', '<leader>gor', '<cmd>update <CR> <cmd>vsplit | terminal go run %<CR>', { desc = 'Run current file' })
--- Run tests in current directory
-vim.keymap.set('n', '<leader>got', '<cmd>update <CR> <cmd>vsplit | terminal go test -v<CR>', { desc = 'Run tests' })
+-- Go specific keymaps
+vim.keymap.set('n', '<leader>Gor', '<cmd>update <CR> <cmd>vsplit | terminal go run %<CR>',
+    { desc = 'Go: Run current file' })
+vim.keymap.set('n', '<leader>Got', '<cmd>update <CR> <cmd>vsplit | terminal go test -v<CR>', { desc = 'Go: Run tests' })
 
 -- Close terminal buffer quickly
 vim.keymap.set('n', '<leader>q', '<cmd>bd!<CR>', { desc = 'Close buffer' })
@@ -70,21 +65,16 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 vim.api.nvim_create_autocmd('TextYankPost', {
     desc = 'Highlight yanked text',
     callback = function()
-        vim.highlight.on_yank({ timeout = 200 })
+        vim.hl.on_yank({ timeout = 200 })
     end,
 })
 
-vim.api.nvim_create_user_command('GitBlameLine', function()
-    local line_number = vim.fn.line('.')
-    local filename = vim.api.nvim_buf_get_name(0)
-    print(vim.system({ 'git', 'blame', '-L', line_number .. ',+1', filename }):wait().stdout)
-end, { desc = 'Print the git blame for the current line' })
+
 
 -- Plugins
 vim.pack.add({
-    { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'v0.10.0' },
+    { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'main' },
     { src = 'https://github.com/saghen/blink.cmp',                version = 'v1.8.0' },
-    { src = 'https://github.com/fang2hou/blink-copilot',          version = 'v1.4.1' },
     { src = 'https://github.com/nvim-tree/nvim-web-devicons',     version = '8dcb311b0c92d460fac00eac706abd43d94d68af' },
     { src = 'https://github.com/nvim-telescope/telescope.nvim',   version = 'v0.2.0' },
     { src = 'https://github.com/nvim-lua/plenary.nvim',           version = 'b9fd5226c2f76c951fc8ed5923d85e4de065e509' },
@@ -95,8 +85,12 @@ vim.pack.add({
     { src = 'https://github.com/stevearc/conform.nvim.git',       version = 'v9.1.0' },
     { src = 'https://github.com/neovim/nvim-lspconfig' },
     { src = 'https://github.com/catppuccin/nvim' },
+    { src = 'https://github.com/lewis6991/gitsigns.nvim',         version = 'v2.0.0' },
+    { src = 'https://github.com/folke/which-key.nvim',            version = 'v3.17.0' },
     "https://github.com/mfussenegger/nvim-lint",
     "https://github.com/WhoIsSethDaniel/mason-tool-installer.nvim",
+    "https://github.com/ThePrimeagen/vim-be-good",
+    "https://github.com/MeanderingProgrammer/render-markdown.nvim",
 })
 
 -- Linting
@@ -110,11 +104,15 @@ lint.linters_by_ft = {
     vue = { 'eslint_d' },
 }
 
-vim.api.nvim_create_autocmd({ "BufWritePost", "BufEnter", "InsertLeave" }, {
+vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost" }, {
     callback = function()
         lint.try_lint()
     end,
 })
+
+vim.keymap.set("n", "<leader>ln", function()
+    lint.try_lint()
+end, { desc = "Trigger linting for current file" })
 
 -- Conform
 require('conform').setup({
@@ -141,71 +139,25 @@ require('conform').setup({
     },
 })
 
--- Mason
-require("mason").setup()
+-- LSP servers
+-- Per-server settings live in lsp/<name>.lua. blink's capabilities are registered globally
+-- here, before mason-lspconfig enables anything.
+vim.lsp.config('*', { capabilities = require('blink.cmp').get_lsp_capabilities(nil, true) })
 
-local capabilities = require('blink.cmp').get_lsp_capabilities()
-local vue_language_server_path = vim.fn.stdpath('data') ..
-    '/mason/packages/vue-language-server/node_modules/@vue/language-server'
-local tsserver_filetypes = { 'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue' }
-local vue_plugin = {
-    name = '@vue/typescript-plugin',
-    location = vue_language_server_path,
-    languages = { 'vue' },
-    configNamespace = 'typescript',
-}
-local ts_ls_config = {
-    init_options = {
-        plugins = { vue_plugin },
-    },
-    filetypes = tsserver_filetypes,
-}
-local lsp_servers = {
-    ts_ls = ts_ls_config,
-    vue_ls = {},
-    gopls = {
-        settings = {
-            gopls = {
-                standaloneTags = { "ignore", "mage" },
-            },
-        },
-    },
-    lua_ls = {
-        settings = {
-            Lua = {
-                diagnostics = {
-                    globals = { 'vim' },
-                },
-                workspace = {
-                    library = vim.api.nvim_get_runtime_file('', true),
-                    checkThirdParty = false,
-                },
-                telemetry = {
-                    enable = false,
-                },
-            },
-        },
-    },
-}
-vim.lsp.config('ts_ls', ts_ls_config)
-vim.lsp.config('vue_ls', {})
-vim.lsp.enable({ 'vue_ls', 'ts_ls' })
+require('mason').setup()
 
-require("mason-lspconfig").setup({
-    ensure_installed = vim.tbl_keys(lsp_servers),
-    handlers = {
-        -- Default handler for all servers
-        function(server_name)
-            local config = lsp_servers[server_name] or {}
-            config.capabilities = capabilities
-            vim.lsp.config(server_name, config)
-            vim.lsp.enable(server_name)
-        end,
-    },
+local servers = { 'jsonls', 'ts_ls', 'vue_ls', 'gopls', 'lua_ls', 'bashls' }
+
+require('mason-lspconfig').setup({
+    ensure_installed = servers,
+    -- Only these get enabled. Without the list, mason-lspconfig starts an LSP for every
+    -- installed mason package that happens to have one, e.g. `stylua --lsp` next to lua_ls.
+    automatic_enable = vim.list_extend({ 'copilot' }, servers),
 })
 
-require("mason-tool-installer").setup({
-    ensure_installed = vim.tbl_keys(lsp_servers),
+-- The formatters and linters that conform and nvim-lint call
+require('mason-tool-installer').setup({
+    ensure_installed = { 'stylua', 'shfmt', 'gofumpt', 'goimports', 'prettierd', 'eslint_d' },
 })
 -- Undotree
 vim.keymap.set('n', '<leader>u', '<cmd>UndotreeToggle <CR>', { desc = 'Open Undotree' })
@@ -217,11 +169,110 @@ vim.cmd.colorscheme('catppuccin-mocha')
 require('nvim-web-devicons').setup({ default = true })
 
 -- Oil
-require('oil').setup()
+require('oil').setup(
+    { view_options = { show_hidden = true, }, })
+
 vim.keymap.set('n', '<leader>e', '<cmd>Oil<CR>', { desc = 'Open Oil' })
 
+-- Lazygit (floating terminal)
+vim.keymap.set('n', '<leader>gg', function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    local width = math.floor(vim.o.columns * 0.9)
+    local height = math.floor(vim.o.lines * 0.9)
+    vim.api.nvim_open_win(buf, true, {
+        relative = 'editor',
+        width = width,
+        height = height,
+        col = math.floor((vim.o.columns - width) / 2),
+        row = math.floor((vim.o.lines - height) / 2),
+        style = 'minimal',
+        border = 'rounded',
+    })
+    vim.fn.jobstart('lazygit', {
+        term = true,
+        on_exit = function()
+            vim.api.nvim_buf_delete(buf, { force = true })
+        end,
+    })
+    vim.cmd('startinsert')
+end, { desc = 'Open Lazygit' })
+
+-- Gitsigns
+require('gitsigns').setup({
+    on_attach = function(bufnr)
+        local gs = require('gitsigns')
+
+        local function map(mode, l, r, opts)
+            opts = opts or {}
+            opts.buffer = bufnr
+            vim.keymap.set(mode, l, r, opts)
+        end
+
+        -- Navigation
+        map('n', ']c', function()
+            if vim.wo.diff then
+                vim.cmd.normal({ ']c', bang = true })
+            else
+                gs.nav_hunk('next')
+            end
+        end, { desc = 'Next hunk' })
+
+        map('n', '[c', function()
+            if vim.wo.diff then
+                vim.cmd.normal({ '[c', bang = true })
+            else
+                gs.nav_hunk('prev')
+            end
+        end, { desc = 'Previous hunk' })
+
+        -- Actions
+        map('n', '<leader>gs', gs.stage_hunk, { desc = 'Git: Stage hunk' })
+        map('v', '<leader>gs', function() gs.stage_hunk({ vim.fn.line('.'), vim.fn.line('v') }) end,
+            { desc = 'Git: Stage hunk' })
+        map('n', '<leader>gr', gs.reset_hunk, { desc = 'Git: Reset hunk' })
+        map('v', '<leader>gr', function() gs.reset_hunk({ vim.fn.line('.'), vim.fn.line('v') }) end,
+            { desc = 'Git: Reset hunk' })
+        map('n', '<leader>gp', gs.preview_hunk, { desc = 'Git: Preview hunk' })
+        map('n', '<leader>gb', function() gs.blame_line({ full = true }) end, { desc = 'Git: Blame line' })
+
+        -- Text object
+        map({ 'o', 'x' }, 'ih', gs.select_hunk, { desc = 'Select hunk' })
+    end,
+})
+
+-- Which-key
+require('which-key').setup()
+require('which-key').add({
+    { '<leader>f', group = 'Find' },
+    { '<leader>g', group = 'Git' },
+    { '<leader>G', group = 'Go' },
+    { '<leader>l', group = 'LSP' },
+    { '<leader>t', group = 'Toggle' },
+})
+
 -- Telescope
-require('telescope').setup({})
+require('telescope').setup({
+    defaults = {
+        path_display = { 'filename_first' },
+        file_ignore_patterns = { '%.git/' }, -- search dotfiles, but not .git/
+    },
+    pickers = {
+        find_files = {
+            hidden = true,
+        },
+        live_grep = {
+            additional_args = { '--hidden' },
+        },
+        buffers = {
+            sort_lastused = true,
+            mappings = {
+                i = {
+                    ["<c-c>"] = "delete_buffer",
+                }
+            }
+        }
+    }
+})
 vim.keymap.set('n', '<leader>ff', '<cmd>Telescope find_files<CR>', { desc = 'Find Files' })
 vim.keymap.set('n', '<leader>fg', '<cmd>Telescope live_grep<CR>', { desc = 'Grep' })
 vim.keymap.set('n', '<leader>fb', '<cmd>Telescope buffers<CR>', { desc = 'Buffers' })
@@ -232,11 +283,36 @@ vim.keymap.set('n', '<leader>fs', '<cmd>Telescope lsp_document_symbols<CR>', { d
 vim.keymap.set('n', '<C-p>', '<cmd>Telescope git_files<CR>', { desc = 'Open Git Files' })
 
 -- Treesitter
-require('nvim-treesitter.configs').setup({
-    highlight = { enable = true },
-    indent = { enable = true },
-    ensure_installed = { 'go', 'lua', 'typescript', 'vue', 'json', 'yaml', 'bash', 'html', 'css', 'javascript' },
+require('nvim-treesitter').install({ 'markdown', 'markdown_inline' })
+
+vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'markdown',
+    callback = function() pcall(vim.treesitter.start) end,
 })
+
+-- Render Markdown
+require('render-markdown').setup({
+    file_types = { 'markdown' },
+    render_modes = { 'n', 'c', 't' },
+    heading = {
+        sign = false,
+        icons = { '# ', '## ', '### ', '#### ', '##### ', '###### ' },
+    },
+    code = {
+        sign = false,
+        width = 'block',
+        right_pad = 1,
+    },
+    bullet = {
+        icons = { '●', '○', '◆', '◇' },
+    },
+    checkbox = {
+        unchecked = { icon = '[ ] ' },
+        checked   = { icon = '[x] ' },
+    },
+})
+
+vim.keymap.set('n', '<leader>tm', '<cmd>RenderMarkdown toggle<CR>', { desc = 'Toggle Markdown Render' })
 
 -- Completion
 require('blink.cmp').setup({
@@ -246,30 +322,12 @@ require('blink.cmp').setup({
     },
     appearance = { nerd_font_variant = 'mono' },
     completion = { documentation = { auto_show = false } },
-    sources = {
-        default = { 'lsp', 'path', 'snippets', 'buffer', 'copilot' },
-        providers = {
-            copilot = {
-                name = 'copilot',
-                module = 'blink-copilot',
-                score_offset = 100,
-                async = true,
-                opts = { max_completions = 3 },
-            },
-        },
-    },
+    sources = { default = { 'lsp', 'path', 'snippets', 'buffer' } },
     fuzzy = { implementation = 'prefer_rust_with_warning' },
     signature = { enabled = true },
 })
 
--- LSP
-local lspconfig = require('lspconfig')
-local lspconfig_defaults = lspconfig.util.default_config
-lspconfig_defaults.capabilities = vim.tbl_deep_extend(
-    'force',
-    lspconfig_defaults.capabilities,
-    require('blink.cmp').get_lsp_capabilities()
-)
+-- LSP keymaps and diagnostics
 vim.api.nvim_create_autocmd('LspAttach', {
     callback = function(event)
         local client = vim.lsp.get_client_by_id(event.data.client_id)
@@ -293,7 +351,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
         map('<leader>rn', vim.lsp.buf.rename, 'Rename')
         map('<leader>ca', vim.lsp.buf.code_action, 'Code Action')
-        map('<leader>f', function()
+        map('<leader>lf', function()
             require('conform').format {
                 async = true, lsp_format = "fallback", timeout_ms = 500
             }
@@ -316,6 +374,17 @@ vim.api.nvim_create_autocmd('LspAttach', {
         end, 'Next Diagnostic')
     end,
 })
+vim.diagnostic.config({
+    virtual_text = { prefix = '●' },
+    signs = true,
+})
+
+vim.keymap.set('n', '<leader>td', function()
+    local config = vim.diagnostic.config()
+    if config == nil then return end
+    vim.diagnostic.config({ virtual_text = not config.virtual_text })
+end, { desc = 'Toggle Diagnostics' })
+
 
 vim.lsp.inline_completion.enable(true)
 -- toggle inline completion
